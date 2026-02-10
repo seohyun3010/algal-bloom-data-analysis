@@ -96,7 +96,7 @@
 
   ![Result](screenshots/6_preprocessing/result.png)
   > 녹조 발생(클로로필-a)의 상대적 중요도를 비교한 결과 수온 > 총질소, 총인 > 유속 순으로 나타납니다. 
-- **코드 설명 :** 자세한 데이터 전처리 코드는 [`src/6_processing/하천수의_수질현황_금강권역.py`](src/6_processing/하천수의_수질현황_금강권역.py)에서 확인할 수 있습니다.
+- **코드 설명 :** 자세한 데이터 전처리 코드는 [`src/6_processing/2024_Geumgang_WaterQuality_Analysis.py`](src/6_processing/2024_Geumgang_WaterQuality_Analysis)에서 확인할 수 있습니다.
 
 ### 2. 클로로필-a 예측 
 앞서 저희 조가 세웠던 "총질소(TN) 및 총인(TP) 농도가 감소하면, 녹조 지표인 클로로필-a 농도 역시 통계적으로 유의미하게 감소할 것이다." 가설을 바탕으로 시나리오 검토를 위한 탐색적 분석으로 수행되었습니다. 
