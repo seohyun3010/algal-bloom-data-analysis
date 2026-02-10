@@ -1,0 +1,132 @@
+"""
+[2024년 금강권역 하천 수질 데이터 분석]
+
+멀티인덱스 구조의 공공 수질 데이터를 해석하여 월별(long-format)로 재구성한 뒤,
+영양염류(총질소·총인·총영양염류)와 클로로필-a 간의 상관관계를 이상치 통제 하에 시각적으로 검증한다.
+
+분석 단계 : 
+1. 멀티인덱스 컬럼 중 분석 대상 변수 선별
+2. 분류 컬럼 중복 제거
+3. 월별 데이터 long-format 변환
+4. 수치형 변환 및 결측치 제거
+5. 총영양염류 생성
+6. 1~99% 분위수 이상치 제거
+7. 월별 회귀선 시각화
+"""
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# =======================================================================
+# 1. 멀티인덱스 컬럼 중 분석 대상 변수 선별 
+# 분석 변수는 모두 수치형으로 변환하고, 변환 불가 및 결측 관측치는 제거했다.
+# =======================================================================
+
+# 원하는 키워드
+keywords = ['총질소T-N', '총인T-P', '클로로필-a']
+selected_cols = [col for col in df.columns if any(k in col[1] for k in keywords)]
+# 선택한 컬럼으로 새로운 데이터프레임 생성
+df_selected = df[selected_cols]
+
+# =======================================================================
+# 2. 분류 컬럼 중복 제거 
+# 분류 관련 컬럼이 멀티인덱스에 중복되어 있을 수 있으므로, 컬럼명을 기준으로 중복 제거 후 최종 Long-format 변환에 사용 
+# =======================================================================
+classification_cols = [col for col in df.columns if '분류' in col[1]]
+
+# 중복이 있을 수 있으므로, 컬럼명을 기준으로 중복 제거
+seen = set()
+unique_classification_cols = []
+for col in classification_cols:
+    if col[1] not in seen:
+        unique_classification_cols.append(col)
+        seen.add(col[1])
+
+"""
+참고 : 이전에는 월별 데이터를 담기 위해 dfs 리스트를 먼저 생성하는 루프를 작성했으나, 
+지금은 아래의 안정화된 Long-format 변환 루프만 사용했다. 따라서 이전 코드는 주석처리했다. 
+
+months = [f'2024년 {m}월' for m in range(1,13)]
+dfs = []
+for month in months:
+    month_cols = [col for col in df.columns if col[0] == month and col[1] in ['총질소T-N', '총인T-P', '클로로필-a Chlorophyll-a']]
+    temp = df[unique_classification_cols + month_cols].copy()
+    temp.columns = [col[1] for col in unique_classification_cols] + [col[1] for col in month_cols]
+    temp['월'] = month
+    dfs.append(temp)
+df_long = pd.concat(dfs, ignore_index=True)
+"""
+
+# =======================================================================
+# 3. 월별 데이터 Long-format 변환 
+# =======================================================================
+months = [f'2024년 {m}월' for m in range(1, 13)]
+
+dfs = []
+
+for month in months:
+    month_cols = [col for col in df.columns if col[0] == month and col[1] in ['총질소T-N', '총인T-P', '클로로필-a Chlorophyll-a']]
+
+    temp = df[unique_classification_cols + month_cols].copy()
+
+    # 컬럼명 단순화
+    temp.columns = [col[1] for col in unique_classification_cols] + [col[1] for col in month_cols]
+    
+    # 월 정보 컬럼 추가 
+    temp['월'] = month
+    dfs.append(temp)
+
+df_long = pd.concat(dfs, ignore_index=True)
+
+# =======================================================================
+# 4. 수치형 변수 및 결측치 제거 
+# 분석 변수는 모두 수치형으로 변환하고, 변환 불가 및 결측 관측치는 제거했다.
+# =======================================================================
+# df_tp 복사본 생성
+df_tp = df_long[['총질소T-N', '총인T-P', '클로로필-a Chlorophyll-a', '월']].copy()
+
+# 숫자형 변환 (변환 불가시 NaN 처리)
+df_tp['총인T-P'] = pd.to_numeric(df_tp['총인T-P'], errors='coerce')
+df_tp['총질소T-N'] = pd.to_numeric(df_tp['총질소T-N'], errors='coerce')
+df_tp['클로로필-a Chlorophyll-a'] = pd.to_numeric(df_tp['클로로필-a Chlorophyll-a'], errors='coerce')
+
+"""
+# 이상치로 인한 왜곡을 방지하기 위해 각 변수별 1~99% 분위수 범위를 적용하였으며, 
+# 월별 회귀선을 통해 계절에 따른 영양염류-클로로필-a 관계를 시각적으로 검증하였다. 
+# 코드가 동일하기에 대표적으로 총영양염류-클로로필 상관관계로 보여주겠다. 
+"""
+
+# =======================================================================
+# 5. 총영양염류 생성 
+# =======================================================================
+df_nut = df_tp.dropna()
+df_nut['총영양염류'] = df_nut['총질소T-N'] + df_nut['총인T-P']
+
+# =======================================================================
+# 6. 1~99% 분위수 이상치 제거 
+# =======================================================================
+lower_nut = df_nut['총영양염류'].quantile(0.01)
+upper_nut = df_nut['총영양염류'].quantile(0.99)
+
+# 이상치 제거
+df_nut_filtered = df_nut[(df_nut['총영양염류'] >= lower_nut) & (df_nut['총영양염류'] <= upper_nut)]
+
+# =======================================================================
+# 7. 월별 회귀선 시각화
+# =======================================================================
+sns.lmplot(
+    data=df_nut_filtered,
+    x='총영양염류',
+    y='클로로필-a Chlorophyll-a',
+    col='월',
+    col_wrap=4,
+    height=4,
+    aspect=1.2,
+    scatter_kws={'alpha': 0.6},
+    line_kws={'color': 'green'}
+)
+
+plt.subplots_adjust(top=0.9)
+plt.suptitle("월별 총영양염류 vs 클로로필-a 관계 (이상치 제거 후)", fontsize=16)
+plt.show()
