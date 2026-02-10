@@ -22,7 +22,7 @@
 
 ---
 ## 1. 프로젝트 개요
-- **문제 제기**
+**문제 제기**
   ![Overview Contents](screenshots/0_overview/algal_bloom_problem.png)
   녹조는 남세균 등 식물플랑크톤의 대발생으로 발생하는 현상입니다. 
   (출처: 식물학백과, 한국식물학회)
